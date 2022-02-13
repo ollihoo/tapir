@@ -12,9 +12,9 @@ from tapir.accounts.models import TapirUser
 from tapir.log.models import UpdateModelLogEntry, ModelLogEntry
 from tapir.shifts.models import ShiftAttendanceTemplate
 from tapir.utils.models import (
-    DurationModelMixin,
+    DateDurationModelMixin,
     CountryField,
-    DurationModelMixinQuerySet,
+    DateDurationModelMixinQuerySet,
 )
 from tapir.utils.user_utils import UserUtils
 
@@ -210,7 +210,7 @@ class UpdateShareOwnerLogEntry(UpdateModelLogEntry):
     template_name = "coop/log/update_share_owner_log_entry.html"
 
 
-class ShareOwnership(DurationModelMixin, models.Model):
+class ShareOwnership(DateDurationModelMixin, models.Model):
     """ShareOwnership represents ownership of a single share."""
 
     owner = models.ForeignKey(

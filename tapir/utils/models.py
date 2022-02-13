@@ -268,53 +268,17 @@ class CountryField(models.CharField):
         return "CharField"
 
 
-class DurationModelMixinQuerySet(models.QuerySet):
-    ## Filter all objects that overlap with the given object.
-    #
-    # @param obj the object that the filtered objects should overlap with
-    # @return all objects that overlap with the given object but not the given object itself
-    def overlapping_with(self, obj) -> DurationModelMixinQuerySet:
-        return self.filter(
-            (
-                # All objects that begin after `obj` begins
-                Q(start_date__gte=obj.start_date)
-                &
-                # and begin during the duration of `obj`
-                (Q(start_date__lte=obj.end_date) if obj.end_date is not None else Q())
-            )
-            | (
-                # All object that begin before `obj` begins
-                Q(start_date__lte=obj.start_date)
-                &
-                # and end after `obj` begins
-                (Q(end_date__gte=obj.start_date) | Q(end_date__isnull=True))
-            )
-        ).exclude(id=(obj.id if hasattr(obj, "id") else None))
-
-    ## Filter all objects that are active on a given date.
-    # @param effective_date The date that the objects returned should all be active on.
-    def active_temporal(self, effective_date=None) -> DurationModelMixinQuerySet:
-        if not effective_date:
-            # if no effective date was given, use today as the default
-            effective_date = date.today()
-        return self.overlapping_with(
-            # It's impossible to instantiate an abstract model, therefore create a namedtuple here
-            namedtuple("FakeDurationModelMixin", ["start_date", "end_date"])(
-                effective_date, effective_date
-            )
-        )
-
-
-## Mixin to represent a model that is active inbetween two dates
-class DurationModelMixin(models.Model):
-    start_date = models.DateField(db_index=True)
-    end_date = models.DateField(null=True, blank=True, db_index=True)
-
-    objects = DurationModelMixinQuerySet.as_manager()
+class RangeModelMixin(models.Model):
+    """RangeModelMixin represents an open-ended (time) range. It must have a start and may have an end."""
 
     class Meta:
-        ordering = ["-start_date"]
         abstract = True
+
+    def _get_start(self):
+        return getattr(self, self.RangeModelMeta.start_field_name)
+
+    def _get_end(self):
+        return getattr(self, self.RangeModelMeta.end_field_name)
 
     ## Return True if the model is currently active, else False
     def is_active(self, effective_date=None) -> bool:
@@ -322,15 +286,15 @@ class DurationModelMixin(models.Model):
             # if no effective date was given, use today as the default
             effective_date = date.today()
         # check if the start date is in the future
-        if self.start_date > effective_date:
+        if self._get_start() > effective_date:
             # if the start is in the future, the model is not active
             return False
 
         # now we have established that the start date is today or in the past
-        if self.end_date is None:
+        if self._get_end() is None:
             # unlimited duration
             return True
-        elif self.end_date >= effective_date:
+        elif self._get_end() >= effective_date:
             # end date is today or in the future
             return True
 
@@ -339,30 +303,96 @@ class DurationModelMixin(models.Model):
 
     ## Return True if the model overlaps with the given model, else false
     ## @param `other` the model to check overlap with
-    def overlaps_with(self, other) -> bool:
+    def overlaps_with(self, other: RangeModelMixin) -> bool:
         overlaps = False
 
         # Use brute force to find overlaps
-        if self.start_date:
-            overlaps = overlaps or other.is_active(self.start_date)
-        if other.start_date:
-            overlaps = overlaps or self.is_active(other.start_date)
-        if self.end_date:
-            overlaps = overlaps or other.is_active(self.end_date)
-        if other.end_date:
-            overlaps = overlaps or self.is_active(other.end_date)
+        if self._get_start():
+            overlaps = overlaps or other.is_active(self._get_start())
+        if other._get_start():
+            overlaps = overlaps or self.is_active(other._get_start())
+        if self._get_end():
+            overlaps = overlaps or other.is_active(self._get_end())
+        if other._get_end():
+            overlaps = overlaps or self.is_active(other._get_end())
 
         return overlaps
 
     ## Validate the model
     def clean(self, *args, **kwargs):
-        super(DurationModelMixin, self).clean()
+        super().clean()
         # Ensure that the duration has a start date
-        if not self.start_date:
+        if not self._get_start():
             raise ValidationError(_("start date must be set"))
         # Ensure that the start date precedes the end date
-        if self.end_date and self.start_date > self.end_date:
+        if self._get_end() and self._get_start() > self._get_end():
             raise ValidationError(_("Start date must be prior to end date"))
+
+
+class RangeModelMixinQuerySet(models.QuerySet):
+    ## Filter all objects that overlap with the given object.
+    #
+    # @param obj the object that the filtered objects should overlap with
+    # @return all objects that overlap with the given object but not the given object itself
+    def overlapping_with(self, obj) -> RangeModelMixinQuerySet:
+        # Moved to _get_model instead of attribute to avoic cyclic dependency
+        start_field_name = self._get_model().RangeModelMeta.start_field_name
+        end_field_name = self._get_model().RangeModelMeta.end_field_name
+
+        if isinstance(obj, tuple):
+            start, end = obj
+        else:
+            start = obj._get_start()
+            end = obj._get_end()
+
+        return self.filter(
+            (
+                # All objects that begin after `obj` begins
+                Q(**{start_field_name + "__gte": start})
+                &
+                # and begin during the duration of `obj`
+                (Q(**{start_field_name + "__lte": end}) if end is not None else Q())
+            )
+            | (
+                # All object that begin before `obj` begins
+                Q(**{start_field_name + "__lte": start})
+                &
+                # and end after `obj` begins
+                (
+                    Q(**{end_field_name + "__gte": start})
+                    | Q(**{end_field_name + "__isnull": True})
+                )
+            )
+        ).exclude(id=(obj.id if hasattr(obj, "id") else None))
+
+    ## Filter all objects that are active on a given date.
+    # @param effective_date The date that the objects returned should all be active on.
+    def active_temporal(self, effective_date=None) -> RangeModelMixinQuerySet:
+        if not effective_date:
+            # if no effective date was given, use today as the default
+            effective_date = date.today()
+        return self.overlapping_with((effective_date, effective_date))
+
+
+class DateDurationModelMixinQuerySet(RangeModelMixinQuerySet):
+    def _get_model(self):
+        return DateDurationModelMixin
+
+
+## Mixin to represent a model that is active inbetween two dates
+class DateDurationModelMixin(RangeModelMixin):
+    start_date = models.DateField(db_index=True)
+    end_date = models.DateField(null=True, blank=True, db_index=True)
+
+    objects = DateDurationModelMixinQuerySet.as_manager()
+
+    class RangeModelMeta:
+        start_field_name = "start_date"
+        end_field_name = "end_date"
+
+    class Meta(RangeModelMixin.Meta):
+        ordering = ["-start_date"]
+        abstract = True
 
 
 def get_country_code(full_country_name: str) -> str:

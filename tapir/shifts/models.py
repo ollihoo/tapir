@@ -17,7 +17,7 @@ from django.utils.translation import gettext_lazy as _
 from tapir.accounts.models import TapirUser
 from tapir.log.models import ModelLogEntry, UpdateModelLogEntry
 from tapir.settings import FROM_EMAIL_MEMBER_OFFICE
-from tapir.utils.models import DurationModelMixin
+from tapir.utils.models import DateDurationModelMixin
 
 
 class ShiftUserCapability:
@@ -903,7 +903,7 @@ def create_shift_user_data(instance: TapirUser, **kwargs):
 models.signals.post_save.connect(create_shift_user_data, sender=TapirUser)
 
 
-class ShiftExemption(DurationModelMixin, models.Model):
+class ShiftExemption(DateDurationModelMixin, models.Model):
     shift_user_data = models.ForeignKey(
         ShiftUserData, related_name="shift_exemptions", on_delete=models.CASCADE
     )
