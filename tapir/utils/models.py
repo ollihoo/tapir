@@ -395,6 +395,27 @@ class DateDurationModelMixin(RangeModelMixin):
         abstract = True
 
 
+class DateTimeDurationModelMixinQuerySet(RangeModelMixinQuerySet):
+    def _get_model(self):
+        return DateTimeDurationModelMixin
+
+
+## Mixin to represent a model that is active inbetween two datetimes
+class DateTimeDurationModelMixin(RangeModelMixin):
+    start_time = models.DateTimeField(db_index=True)
+    end_time = models.DateTimeField(null=True, blank=True, db_index=True)
+
+    objects = DateTimeDurationModelMixinQuerySet.as_manager()
+
+    class RangeModelMeta:
+        start_field_name = "start_time"
+        end_field_name = "end_time"
+
+    class Meta(RangeModelMixin.Meta):
+        ordering = ["-start_time"]
+        abstract = True
+
+
 def get_country_code(full_country_name: str) -> str:
     for pair in COUNTRIES:
         if full_country_name in pair[1]:

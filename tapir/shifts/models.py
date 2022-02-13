@@ -17,7 +17,7 @@ from django.utils.translation import gettext_lazy as _
 from tapir.accounts.models import TapirUser
 from tapir.log.models import ModelLogEntry, UpdateModelLogEntry
 from tapir.settings import FROM_EMAIL_MEMBER_OFFICE
-from tapir.utils.models import DateDurationModelMixin
+from tapir.utils.models import DateDurationModelMixin, DateTimeDurationModelMixin
 
 
 class ShiftUserCapability:
@@ -435,7 +435,7 @@ class DeleteShiftAttendanceTemplateLogEntry(ShiftAttendanceTemplateLogEntry):
     template_name = "shifts/log/delete_shift_attendance_template_log_entry.html"
 
 
-class Shift(models.Model):
+class Shift(DateTimeDurationModelMixin):
     # ShiftTemplate that this shift was generated from, may be null for manually-created shifts
     shift_template = models.ForeignKey(
         ShiftTemplate,
@@ -445,13 +445,14 @@ class Shift(models.Model):
         on_delete=models.PROTECT,
     )
 
+    # start_time is inherited from DateTimeDurationModelMixin
+    # Override end-date because Shift may not be open-ended
+    end_time = models.DateTimeField(blank=False, db_index=True)
+
     # TODO(Leon Handreke): For generated shifts, leave this blank instead and use a getter?
     name = models.CharField(blank=False, max_length=255)
     num_required_attendances = models.IntegerField(null=True, blank=False, default=3)
     description = models.TextField(blank=True, null=False, default="")
-
-    start_time = models.DateTimeField(blank=False)
-    end_time = models.DateTimeField(blank=False)
 
     NB_DAYS_FOR_SELF_UNREGISTER = 7
     NB_DAYS_FOR_SELF_LOOK_FOR_STAND_IN = 2
