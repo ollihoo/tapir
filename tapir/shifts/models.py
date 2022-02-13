@@ -454,7 +454,11 @@ class Shift(DateTimeDurationModelMixin):
     num_required_attendances = models.IntegerField(null=True, blank=False, default=3)
     description = models.TextField(blank=True, null=False, default="")
 
+    # Number of days before the start of the shift that the user
+    # may cancel the shift by themselves.
     NB_DAYS_FOR_SELF_UNREGISTER = 7
+    # Number of days before the start of the shift that the user may
+    # look for a stand-in by themselves.
     NB_DAYS_FOR_SELF_LOOK_FOR_STAND_IN = 2
 
     def __str__(self):
@@ -911,6 +915,11 @@ class ShiftExemption(DateDurationModelMixin, models.Model):
     description = models.TextField(_("Description"), null=False, blank=False)
 
     THRESHOLD_NB_CYCLES_UNREGISTER_FROM_ABCD_SHIFT = 6
+    # Maximum duration in days for a ShiftExemption before the user will be forced
+    # to unregister from their ABCD ShiftAttendanceTemplate.
+    THRESHOLD_DURATION_DAYS_UNREGISTER_FROM_ABCD_SHIFT = (
+        THRESHOLD_NB_CYCLES_UNREGISTER_FROM_ABCD_SHIFT * 4 * 7
+    )
 
     def get_start_time(self):
         return timezone.make_aware(
@@ -959,9 +968,8 @@ class ShiftExemption(DateDurationModelMixin, models.Model):
         if not self.end_date:
             return True
         return (
-            (self.end_date - self.start_date).days
-            >= ShiftExemption.THRESHOLD_NB_CYCLES_UNREGISTER_FROM_ABCD_SHIFT * 4 * 7
-        )
+            self.end_date - self.start_date
+        ).days >= ShiftExemption.THRESHOLD_DURATION_DAYS_UNREGISTER_FROM_ABCD_SHIFT
 
 
 class ShiftCycleEntry(models.Model):
