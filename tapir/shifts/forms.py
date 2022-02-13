@@ -209,24 +209,13 @@ class ShiftExemptionForm(forms.ModelForm):
         widget=HiddenInput,
     )
 
-    def clean(self):
-        super().clean()
-        if (
-            "confirm_cancelled_attendances" in self._errors
-            or "confirm_cancelled_abcd_attendances" in self._errors
-        ):
-            return
+    def validate_unique(self):
+        # Use validate_unique instead of clean because the self.instance is already constructed.
+        # This allows us to call some validation on the fat model ShiftExemption
+        super().validate_unique()
 
-        user = self.instance.shift_user_data.user
-        if (
-            "confirm_cancelled_attendances" in self.cleaned_data
-            and not self.cleaned_data["confirm_cancelled_attendances"]
-        ):
-            covered_attendances = ShiftExemption.get_attendances_cancelled_by_exemption(
-                user=user,
-                start_date=self.cleaned_data["start_date"],
-                end_date=self.cleaned_data["end_date"],
-            )
+        if not self.cleaned_data.get("confirm_cancelled_attendances"):
+            covered_attendances = self.instance.get_attendances_to_cancel()
             if covered_attendances.count() > 0:
                 attendances_display = ", ".join(
                     [
@@ -245,14 +234,12 @@ class ShiftExemptionForm(forms.ModelForm):
                 self.fields["confirm_cancelled_attendances"].required = True
 
         if (
-            "confirm_cancelled_abcd_attendances" in self.cleaned_data
-            and not self.cleaned_data["confirm_cancelled_abcd_attendances"]
-            and ShiftExemption.must_unregister_from_abcd_shift(
-                start_date=self.cleaned_data["start_date"],
-                end_date=self.cleaned_data["end_date"],
-            )
+            not self.cleaned_data.get("confirm_cancelled_abcd_attendances")
+            and self.instance.must_unregister_from_abcd_shift()
         ):
-            attendance_templates = ShiftAttendanceTemplate.objects.filter(user=user)
+            attendance_templates = ShiftAttendanceTemplate.objects.filter(
+                user=self.instance.shift_user_data.user
+            )
             if attendance_templates.count() > 0:
                 attendances_display = ", ".join(
                     [

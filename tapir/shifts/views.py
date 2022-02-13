@@ -710,21 +710,15 @@ class CreateShiftExemptionView(PermissionRequiredMixin, CreateView):
     def form_valid(self, form):
         exemption: ShiftExemption = form.instance
         user = self.get_target_user_data().user
-        for attendance in ShiftExemption.get_attendances_cancelled_by_exemption(
-            user=user,
-            start_date=exemption.start_date,
-            end_date=exemption.end_date,
-        ):
+        for attendance in exemption.get_attendances_to_cancel():
             attendance.state = ShiftAttendance.State.CANCELLED
             attendance.excused_reason = (
                 _("Is covered by shift exemption: ") + exemption.description
             )
             attendance.save()
 
-        if ShiftExemption.must_unregister_from_abcd_shift(
-            start_date=exemption.start_date, end_date=exemption.end_date
-        ):
-            ShiftAttendanceTemplate.objects.filter(user=user).delete()
+        if exemption.must_unregister_from_abcd_shift():
+            user.shift_attendance_templates.all().delete()
 
         return super().form_valid(form)
 

@@ -912,52 +912,54 @@ class ShiftExemption(DateDurationModelMixin, models.Model):
 
     THRESHOLD_NB_CYCLES_UNREGISTER_FROM_ABCD_SHIFT = 6
 
-    @staticmethod
-    def get_attendances_cancelled_by_exemption(
-        user: TapirUser, start_date: datetime.date, end_date: datetime.date
-    ):
-        start_time = timezone.make_aware(
-            datetime.datetime.combine(start_date, datetime.time(hour=0, minute=0))
+    def get_start_time(self):
+        return timezone.make_aware(
+            datetime.datetime.combine(self.start_date, datetime.time(hour=0, minute=0))
         )
-        end_time = (
+
+    def get_end_time(self):
+        # TODO(Leon Handreke): Ideally, we would compute this as next day - epsilon,
+        # but this is good enough for now
+        return (
             timezone.make_aware(
-                datetime.datetime.combine(end_date, datetime.time(hour=23, minute=59))
+                datetime.datetime.combine(
+                    self.end_date, datetime.time(hour=23, minute=59, second=59)
+                )
             )
-            if end_date
+            if self.end_date
             else None
         )
 
-        attendances = ShiftAttendance.objects.filter(
-            user=user,
-            slot__shift__start_time__gte=start_time,
+    def get_attendances_to_cancel(self):
+        user = self.shift_user_data.user
+
+        # Already filter overlapping_shifts by user so that the
+        # attendances query will hopefully be less slow.
+        overlapping_shifts = Shift.objects.filter(
+            slots__attendances__user=user
+        ).overlapping_with((self.get_start_time(), self.get_end_time()))
+
+        attendances = self.user.shift_attendances.filter(
+            slot__shift__in=overlapping_shifts
         )
-        if end_time:
-            attendances = attendances.filter(slot__shift__end_time__lte=end_time)
 
-        if not ShiftExemption.must_unregister_from_abcd_shift(
-            start_date=start_date, end_date=end_date
-        ):
-            return attendances
-
-        for attendance_template in ShiftAttendanceTemplate.objects.filter(user=user):
-            attendances = attendances.union(
-                ShiftAttendance.objects.filter(
-                    slot__in=attendance_template.slot_template.generated_slots.all(),
-                    user=user,
-                    slot__shift__start_time__gte=start_time,
+        if self.must_unregister_from_abcd_shift():
+            for attendance_template in user.shift_attendance_templates:
+                attendances = attendances.union(
+                    ShiftAttendance.objects.filter(
+                        slot__in=attendance_template.slot_template.generated_slots.all(),
+                        user=user,
+                        slot__shift__start_time__gte=self.start_time,
+                    )
                 )
-            )
         return attendances
 
-    @staticmethod
-    def must_unregister_from_abcd_shift(
-        start_date: datetime.date, end_date: datetime.date
-    ):
+    def must_unregister_from_abcd_shift(self):
         # Infinite exemption
-        if not end_date:
+        if not self.end_date:
             return True
         return (
-            (end_date - start_date).days
+            (self.end_date - self.start_date).days
             >= ShiftExemption.THRESHOLD_NB_CYCLES_UNREGISTER_FROM_ABCD_SHIFT * 4 * 7
         )
 
