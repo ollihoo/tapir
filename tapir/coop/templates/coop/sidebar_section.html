@@ -1,0 +1,25 @@
+{% if perms.coop.manage %}
+    <h6 class="sidebar-heading px-3 mt-4 mb-1 text-muted">{% translate "Cooperative" %}</h6>
+    <ul class="nav flex-column">
+        <li class="nav-item">
+            <a class="nav-link" href="{% url "coop:shareowner_list" %}">
+                {% translate "Members" %}
+            </a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link" href="{% url "coop:draftuser_list" %}">
+                {% translate "Applicants" %}
+            </a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link" href="{% url "coop:statistics" %}">
+                {% translate "Statistics" %}
+            </a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link" href="{% url "coop:matching_program_list" %}">
+                {% translate "Matching program" %}
+            </a>
+        </li>
+    </ul>
+{% endif %}

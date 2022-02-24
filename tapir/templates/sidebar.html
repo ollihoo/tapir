@@ -1,0 +1,29 @@
+{% comment %}
+The sections above could simply be commented out if the module is not
+desired for a given installation.
+{% endcomment %}
+
+{% include "coop/sidebar_section.html" %}
+
+{% include "shifts/sidebar_section.html" %}
+
+{% if perms.welcomedesk.view %}
+    <h6 class="sidebar-heading px-3 mt-4 mb-1 text-muted">{% translate "Welcome Desk" %}</h6>
+    <ul class="nav flex-column">
+        <li class="nav-item">
+            <a class="nav-link" href="{% url "coop:welcome_desk_search" %}" id="welcome_desk_link">
+                {% translate "Welcome Desk" %}
+            </a>
+        </li>
+    </ul>
+{% endif %}
+{% if perms.coop.manage %}
+    <h6 class="sidebar-heading px-3 mt-4 mb-1 text-muted">{% translate "Financing campaign" %}</h6>
+    <ul class="nav flex-column">
+        {% financing_nav_links %}
+    </ul>
+{% endif %}
+
+<a class="nav-link text-muted" id="about-link" href="{% url "coop:about" %}">
+    {% translate "About Tapir" %}
+</a>

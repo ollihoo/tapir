@@ -1,0 +1,32 @@
+<h6 class="sidebar-heading px-3 mt-4 mb-1 text-muted">Shifts</h6>
+<ul class="nav flex-column">
+    <li class="nav-item">
+        <a class="nav-link" href="{% url "shifts:calendar_future" %}">
+            {% translate "Shift calendar" %}
+        </a>
+    </li>
+
+    <li class="nav-item">
+        <a class="nav-link" href="{% url "shifts:shift_template_overview" %}">
+            {% translate "ABCD-shifts week-plan" %}
+        </a>
+    </li>
+
+    <li class="nav-item">
+        {% get_current_week_group as group %}
+        <a class="nav-link" href="{% url "shifts:shift_template_group_calendar" %}">{% translate 'ABCD weeks calendar<br />Current week: ' %}{{ group.name }}</a>
+    </li>
+
+    {% if perms.shifts.manage %}
+        <li class="nav-item">
+            <a class="nav-link" href="{% url "shifts:calendar_past" %}">
+                {% translate "Past shifts" %}
+            </a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link" href="{% url "shifts:shift_exemption_list" %}">
+                {% translate "Shift exemptions" %}
+            </a>
+        </li>
+    {% endif %}
+</ul>
