@@ -30,18 +30,26 @@ services:
       - selenium
 
   nginx-proxy:
-    image: jwilder/nginx-proxy
+    image: jwilder/nginx-proxy:1.2.3
+#    logging:
+#      driver: 'json-file'
+#      options:
+#        max-size: '200m'
+#        max-file: '5'
     volumes:
       - /var/run/docker.sock:/tmp/docker.sock:ro
       - ./docker/nginx/certs:/etc/nginx/certs:ro
       - ./docker/nginx/vhost.d:/etc/nginx/vhost.d:ro
+      - ./docker/nginx/proxy.conf:/etc/nginx/proxy.conf:ro
       - ./docker/nginx/client_auth_certs:/etc/nginx/client_auth_certs:ro
+      - ./docker/nginx/log:/var/log/nginx:rw
     ports:
       - "8000:80"
       - "8001:443"
     environment:
       HTTPS_METHOD: noredirect
       DEFAULT_HOST: localhost
+      DISABLE_ACCESS_LOGS: "true"
 
   db:
     image: postgres:14-alpine
@@ -84,6 +92,31 @@ services:
       DEBUG: 1
     depends_on:
       - redis
+
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: prometheus
+    ports:
+      - 9090:9090
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+    volumes:
+      - ./docker/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+#    depends_on:
+#      - cadvisor
+#
+#  cadvisor:
+#    image: gcr.io/cadvisor/cadvisor:latest
+#    container_name: cadvisor
+#    ports:
+#      - 8080:8080
+#    volumes:
+#      - ./docker/cadvisor:/rootfs:ro
+#      - ./docker/cadvisor/varrun:/var/run:rw
+#      - ./docker/cadvisor/sys:/sys:ro
+#      - ./docker/cadvisor/varlibdocker/:/var/lib/docker:ro
+#    depends_on:
+#      - web
 
 volumes:
   nginx-certs-volume:
