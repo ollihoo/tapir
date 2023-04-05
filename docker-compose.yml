@@ -31,11 +31,6 @@ services:
 
   nginx-proxy:
     image: jwilder/nginx-proxy:1.2.3
-#    logging:
-#      driver: 'json-file'
-#      options:
-#        max-size: '200m'
-#        max-file: '5'
     volumes:
       - /var/run/docker.sock:/tmp/docker.sock:ro
       - ./docker/nginx/certs:/etc/nginx/certs:ro
@@ -46,6 +41,7 @@ services:
     ports:
       - "8000:80"
       - "8001:443"
+      - 80
     environment:
       HTTPS_METHOD: noredirect
       DEFAULT_HOST: localhost
@@ -102,21 +98,23 @@ services:
       - --config.file=/etc/prometheus/prometheus.yml
     volumes:
       - ./docker/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
-#    depends_on:
-#      - cadvisor
-#
-#  cadvisor:
-#    image: gcr.io/cadvisor/cadvisor:latest
-#    container_name: cadvisor
-#    ports:
-#      - 8080:8080
-#    volumes:
-#      - ./docker/cadvisor:/rootfs:ro
-#      - ./docker/cadvisor/varrun:/var/run:rw
-#      - ./docker/cadvisor/sys:/sys:ro
-#      - ./docker/cadvisor/varlibdocker/:/var/lib/docker:ro
-#    depends_on:
-#      - web
+    depends_on:
+      - nginx-proxy
+
+  nginx-exporter:
+    image: nginx/nginx-prometheus-exporter:0.10.0
+    ports:
+      - "9113:9113"
+    environment:
+      WEBHOST: web
+    command:
+      - "-nginx.scrape-uri=http://nginx-proxy:80/metrics"
+    depends_on:
+      - nginx-proxy
+      - prometheus
+    deploy:
+      restart_policy:
+        condition: on-failure
 
 volumes:
   nginx-certs-volume:
