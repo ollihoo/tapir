@@ -99,19 +99,16 @@ services:
     volumes:
       - ./docker/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
     depends_on:
-      - nginx-proxy
+      - nginx-exporter
 
   nginx-exporter:
     image: nginx/nginx-prometheus-exporter:0.10.0
     ports:
-      - "9113:9113"
-    environment:
-      WEBHOST: web
+      - 9113
     command:
       - "-nginx.scrape-uri=http://nginx-proxy:80/metrics"
     depends_on:
       - nginx-proxy
-      - prometheus
     deploy:
       restart_policy:
         condition: on-failure
