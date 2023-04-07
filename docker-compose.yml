@@ -121,7 +121,6 @@ services:
     volumes:
       - "./docker/grafana/provisioning/dashboards:/etc/grafana/provisioning/dashboards:rw"
       - "./docker/grafana/provisioning/datasources:/etc/grafana/provisioning/datasources:rw"
-      - "./docker/grafana/varlibgrafana:/etc/var/lib/grafana:rw"
     depends_on:
       - prometheus
       - nginx-exporter
