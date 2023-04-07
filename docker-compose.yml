@@ -10,7 +10,7 @@ services:
     ports:
       - "389:389"
     volumes:
-      - ./ldap_testdata.ldif:/container/service/slapd/assets/config/bootstrap/ldif/custom/50-testdata.ldif
+      - ./docker/openldap/ldap_testdata.ldif:/container/service/slapd/assets/config/bootstrap/ldif/custom/50-testdata.ldif
     # Required so that the container doesn't modify the testdata ldif
     command: --copy-service
 
@@ -94,6 +94,7 @@ services:
     container_name: prometheus
     ports:
       - 9090:9090
+      - 9090
     command:
       - --config.file=/etc/prometheus/prometheus.yml
     volumes:
@@ -112,6 +113,18 @@ services:
     deploy:
       restart_policy:
         condition: on-failure
+
+  grafana:
+    image: grafana/grafana-enterprise
+    ports:
+      - "3000:3000"
+    volumes:
+      - "./docker/grafana/provisioning/dashboards:/etc/grafana/provisioning/dashboards:rw"
+      - "./docker/grafana/provisioning/datasources:/etc/grafana/provisioning/datasources:rw"
+      - "./docker/grafana/varlibgrafana:/etc/var/lib/grafana:rw"
+    depends_on:
+      - prometheus
+      - nginx-exporter
 
 volumes:
   nginx-certs-volume:
