@@ -125,5 +125,24 @@ services:
       - prometheus
       - nginx-exporter
 
+  influxdb:
+    image: influxdb:latest
+    ports:
+      - "8086:8086"
+    volumes:
+      - "./docker/influxdb/varlib:/var/lib/influxdb2"
+
+  telegraf:
+      image: telegraf:latest
+      volumes:
+        - "./docker/telegraf/etc/telegraf.conf:/etc/telegraf/telegraf.conf:ro"
+        - "./docker/nginx/log:/var/log/nginx:ro"
+      environment:
+        - "INFLUX_TOKEN=EC23oibkriaVXWHkovcHe6KN9Mze7jlcutry2kCIb3MOP7ciKl3pySD86iXp4BUcUGnQYGjfp1wEBciYQq0cLg=="
+        - "INFLUX_URL=http://influxdb:8086"
+      depends_on:
+        - influxdb
+
+
 volumes:
   nginx-certs-volume:
